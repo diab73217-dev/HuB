@@ -59,6 +59,9 @@ const COUNTER_API = "https://abacus.jasoncameron.dev";
 const KEY_SITE = "site";               // إجمالي الزيارات
 const KEY_TOTAL_PLAYS = "total_plays"; // إجمالي مرات التشغيل
 
+// رابط الإعلان: بيتفتح مرة واحدة لكل جلسة عند أول ضغطة
+const AD_LINK = "https://uplcm.com/4/11848806";
+
 // أضف أي فيديو جديد هنا: حط الـ ID بس (الجزء اللي بعد /e/)
 const videoIds = [
   "3r5kwCzBaQjm", "ihlzJXMOQzSV",
@@ -159,6 +162,17 @@ function checkIframeFocus() {
 }
 addEventListener("blur", () => setTimeout(checkIframeFocus, 0));
 setInterval(checkIframeFocus, 400);
+
+/* ========= رابط الإعلان ========= */
+// بيتفتح مرة واحدة فقط لكل جلسة، عند أول ضغطة على الصفحة
+let adOpened = false;
+try { adOpened = !!sessionStorage.getItem("ad_opened"); } catch (e) {}
+document.addEventListener("click", function () {
+  if (adOpened) return;
+  adOpened = true;
+  try { sessionStorage.setItem("ad_opened", "1"); } catch (e) {}
+  window.open(AD_LINK, "_blank", "noopener");
+});
 
 /* ========= العرض ========= */
 const totalPages = Math.ceil(videoIds.length / PER_PAGE);
