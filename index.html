@@ -28,23 +28,12 @@ main{max-width:1160px;margin:0 auto;padding:24px 18px 36px;display:grid;grid-tem
 .card.hl{outline:2px solid var(--accent)}
 .player{position:relative;aspect-ratio:16/9;background:radial-gradient(circle at 30% 20%,#2b3745,#151a21)}
 .player iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-.bar{display:flex;align-items:center;gap:6px;padding:10px 12px;flex-wrap:wrap}
-.bar button{border:1px solid var(--line);background:transparent;color:var(--text);border-radius:999px;padding:3px 11px;font-size:14px;cursor:pointer;transition:.15s}
-.bar button:hover{border-color:var(--accent)}
-.bar button:active{transform:scale(.95)}
-.bar button.on{background:var(--accent);border-color:var(--accent);color:#0e1115;font-weight:600}
-.bar .share{margin-left:auto;color:var(--mute)}
-.meta{flex-basis:100%;display:flex;gap:14px;color:var(--mute);font-size:12.5px;padding:2px 2px 0}
-.opts{flex-basis:100%;display:none;flex-wrap:wrap;gap:6px;padding-top:8px;border-top:1px solid var(--line);margin-top:4px}
-.opts.open{display:flex}
-.opts button{font-size:12.5px;padding:3px 10px;color:var(--mute)}
+.meta{display:flex;gap:14px;color:var(--mute);font-size:12.5px;padding:10px 14px}
 nav{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;padding:0 16px 48px}
 nav button{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:10px;min-width:40px;padding:7px 12px;cursor:pointer;transition:.15s}
 nav button:hover:not(:disabled){border-color:var(--accent)}
 nav button.on{background:var(--accent);border-color:var(--accent);color:#0e1115;font-weight:700}
 nav button:disabled{opacity:.35;cursor:default}
-#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:9px 18px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:20}
-#toast.show{opacity:1}
 @media (max-width:600px){.wrap{padding:12px}.logo{font-size:21px}.stats span{padding:4px 9px;font-size:12px}main{padding:16px 12px 30px;gap:16px}}
 </style>
 </head>
@@ -57,7 +46,6 @@ nav button:disabled{opacity:.35;cursor:default}
 
 <main id="grid"></main>
 <nav id="pager"></nav>
-<div id="toast"></div>
 
 <script>
 /* ========= الإعدادات ========= */
@@ -69,14 +57,6 @@ const COUNTER_API = "https://abacus.jasoncameron.dev";
 
 const KEY_SITE = "site";               // إجمالي الزيارات
 const KEY_TOTAL_PLAYS = "total_plays"; // إجمالي مرات التشغيل
-
-const REACTIONS = [
-  { k: "like", e: "👍" },
-  { k: "love", e: "❤️" },
-  { k: "haha", e: "😂" },
-  { k: "wow",  e: "😮" },
-  { k: "fire", e: "🔥" }
-];
 
 // أضف أي فيديو جديد هنا: حط الـ ID بس (الجزء اللي بعد /e/)
 const videoIds = [
@@ -112,8 +92,6 @@ const videoIds = [
 /* ========= العدادات ========= */
 const stats = {};
 const fmt = n => Number(n || 0).toLocaleString("en-US");
-const reactKey = (k, id) => "r_" + k + "_" + id;
-const shareKey = id => "s_" + id;
 const $ = id => document.getElementById(id);
 
 async function counterRequest(action, key) {
@@ -130,26 +108,15 @@ function paint() {
     const v = stats[el.dataset.views];
     el.textContent = "👁 " + (v !== undefined ? fmt(v) : "…") + " views";
   });
-  document.querySelectorAll("[data-count]").forEach(el => {
-    const v = stats[el.dataset.count];
-    el.textContent = v ? " " + fmt(v) : "";
-  });
-  document.querySelectorAll("[data-shares]").forEach(el => {
-    const v = stats[el.dataset.shares];
-    el.textContent = "↗ " + fmt(v) + " shares";
-  });
   if (stats[KEY_SITE] !== undefined) $("sv").textContent = fmt(stats[KEY_SITE]);
   if (stats[KEY_TOTAL_PLAYS] !== undefined) $("sp").textContent = fmt(stats[KEY_TOTAL_PLAYS]);
 }
 
 // تحميل أرقام الكارت لما يقرب من الشاشة فقط (توفير في الطلبات)
-function loadCardStats(id) {
-  const keys = [id, shareKey(id)].concat(REACTIONS.map(r => reactKey(r.k, id)));
-  Promise.all(keys.map(async key => {
-    if (stats[key] !== undefined) return;
-    const v = await counterRequest("get", key);
-    if (v !== null) stats[key] = v;
-  })).then(paint);
+async function loadCardStats(id) {
+  if (stats[id] !== undefined) return;
+  const v = await counterRequest("get", id);
+  if (v !== null) { stats[id] = v; paint(); }
 }
 
 // زيارة الموقع: مرة واحدة لكل جلسة
@@ -192,84 +159,6 @@ function checkIframeFocus() {
 addEventListener("blur", () => setTimeout(checkIframeFocus, 0));
 setInterval(checkIframeFocus, 400);
 
-/* ========= الريأكشنز (ريأكشن واحد لكل فيديو لكل جهاز) ========= */
-const getMine = id => { try { return localStorage.getItem("reacted_" + id); } catch (e) { return null; } };
-const setMine = (id, k) => { try { localStorage.setItem("reacted_" + id, k); } catch (e) {} };
-
-async function handleReact(id, k, btn) {
-  if (getMine(id)) { toast("You already reacted to this video"); return; }
-  setMine(id, k);
-  btn.classList.add("on");
-  const key = reactKey(k, id);
-  stats[key] = (stats[key] || 0) + 1;
-  paint();
-  const v = await counterRequest("hit", key);
-  if (v !== null) { stats[key] = v; paint(); }
-}
-
-/* ========= المشاركة ========= */
-const canNativeShare = typeof navigator.share === "function";
-
-function shareUrl(id) {
-  const base = location.origin && location.origin !== "null"
-    ? location.origin + location.pathname
-    : location.href.split("?")[0].split("#")[0];
-  return base + "?v=" + id;
-}
-
-async function copyText(text) {
-  try { await navigator.clipboard.writeText(text); return true; }
-  catch (e) {
-    const t = document.createElement("textarea");
-    t.value = text; t.style.cssText = "position:fixed;opacity:0";
-    document.body.appendChild(t); t.select();
-    let ok = false;
-    try { ok = document.execCommand("copy"); } catch (err) {}
-    document.body.removeChild(t);
-    return ok;
-  }
-}
-
-async function handleShare(id, type) {
-  const url = shareUrl(id), text = "Watch this video on XHUB";
-  const u = encodeURIComponent(url), t = encodeURIComponent(text);
-  let done = false;
-
-  if (type === "native") {
-    try { await navigator.share({ title: "XHUB", text: text, url: url }); done = true; }
-    catch (e) { return; }
-  } else if (type === "copy") {
-    done = await copyText(url);
-    toast(done ? "Link copied ✓" : "Couldn't copy the link");
-  } else {
-    const links = {
-      whatsapp: "https://wa.me/?text=" + t + "%20" + u,
-      telegram: "https://t.me/share/url?url=" + u + "&text=" + t,
-      facebook: "https://www.facebook.com/sharer/sharer.php?u=" + u,
-      x: "https://twitter.com/intent/tweet?url=" + u + "&text=" + t
-    };
-    window.open(links[type], "_blank", "noopener,noreferrer");
-    done = true;
-  }
-
-  if (done) {
-    const key = shareKey(id);
-    stats[key] = (stats[key] || 0) + 1;
-    paint();
-    const v = await counterRequest("hit", key);
-    if (v !== null) { stats[key] = v; paint(); }
-  }
-}
-
-let toastTimer = null;
-function toast(msg) {
-  const el = $("toast");
-  el.textContent = msg;
-  el.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show"), 1800);
-}
-
 /* ========= العرض ========= */
 const totalPages = Math.ceil(videoIds.length / PER_PAGE);
 const grid = $("grid"), pager = $("pager");
@@ -296,44 +185,20 @@ function getPageFromUrl() {
 }
 
 function card(id) {
-  const mine = getMine(id);
   const el = document.createElement("div");
   el.className = "card";
   el.id = "v-" + id;
   el.dataset.card = id;
 
-  const reacts = REACTIONS.map(r =>
-    '<button data-react-id="' + id + '" data-react-k="' + r.k + '"' + (mine === r.k ? ' class="on"' : '') + '>' +
-    r.e + '<span data-count="' + reactKey(r.k, id) + '"></span></button>'
-  ).join("");
-
-  const opts = [["copy","Copy link"],["whatsapp","WhatsApp"],["telegram","Telegram"],["facebook","Facebook"],["x","X"]]
-    .map(o => '<button data-share-id="' + id + '" data-share-type="' + o[0] + '">' + o[1] + '</button>').join("");
-
   el.innerHTML =
     '<div class="player"><iframe data-id="' + id + '" data-src="https://tv1.indoav.app/e/' + id + '" ' +
     'allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>' +
-    '<div class="bar">' + reacts +
-    '<button class="share" data-share-id="' + id + '" data-share-type="main">Share ↗</button>' +
-    '<div class="opts">' + opts + '</div>' +
-    '<div class="meta"><span data-views="' + id + '">👁 … views</span><span data-shares="' + shareKey(id) + '">↗ 0 shares</span></div>' +
-    '</div>';
+    '<div class="meta"><span data-views="' + id + '">👁 … views</span></div>';
 
   playerIO.observe(el.querySelector("iframe"));
   cardIO.observe(el);
   return el;
 }
-
-grid.addEventListener("click", e => {
-  const r = e.target.closest("[data-react-id]");
-  if (r) { handleReact(r.dataset.reactId, r.dataset.reactK, r); return; }
-  const s = e.target.closest("[data-share-id]");
-  if (!s) return;
-  if (s.dataset.shareType === "main") {
-    if (canNativeShare) handleShare(s.dataset.shareId, "native");
-    else s.parentElement.querySelector(".opts").classList.toggle("open");
-  } else handleShare(s.dataset.shareId, s.dataset.shareType);
-});
 
 function renderPagination(page) {
   pager.innerHTML = "";
