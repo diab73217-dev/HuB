@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XHUB</title>
+<style>
+:root{--bg:#0e1115;--card:#161a20;--text:#e8eaed;--mute:#8b94a0;--line:#232932;--accent:#6ee7c8;--glass:rgba(14,17,21,.72)}
+@media (prefers-color-scheme:light){:root{--bg:#f4f6f8;--card:#fff;--text:#1d232b;--mute:#6b7683;--line:#e3e7ec;--accent:#0f9d83;--glass:rgba(244,246,248,.78)}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+header{position:sticky;top:0;z-index:5;background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.wrap{display:flex;justify-content:space-between;align-items:center;gap:12px;max-width:1160px;margin:0 auto;padding:14px 18px}
+.logo{font-size:24px;font-weight:800;letter-spacing:3px;color:var(--text);text-decoration:none;cursor:pointer;user-select:none}
+.logo span{color:var(--accent)}
+.stats{display:flex;gap:8px}
+.stats span{display:flex;align-items:center;gap:7px;padding:5px 12px;border:1px solid var(--line);border-radius:999px;color:var(--mute);font-size:13px;background:var(--card)}
+.stats span::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.stats b{color:var(--text);font-weight:600}
+main{max-width:1160px;margin:0 auto;padding:24px 18px 36px;display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;transition:transform .2s,box-shadow .2s}
+.card:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(0,0,0,.18)}
+.card.hl{outline:2px solid var(--accent)}
+.player{position:relative;aspect-ratio:16/9;background:radial-gradient(circle at 30% 20%,#2b3745,#151a21)}
+.player iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.bar{display:flex;align-items:center;gap:6px;padding:10px 12px;flex-wrap:wrap}
+.bar button{border:1px solid var(--line);background:transparent;color:var(--text);border-radius:999px;padding:3px 11px;font-size:14px;cursor:pointer;transition:.15s}
+.bar button:hover{border-color:var(--accent)}
+.bar button.on{background:var(--accent);border-color:var(--accent);color:#0e1115;font-weight:600}
+.bar .share{margin-left:auto;color:var(--mute)}
+nav{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;padding:0 16px 48px}
+nav button{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:10px;min-width:40px;padding:7px 12px;cursor:pointer;transition:.15s}
+nav button:hover:not(:disabled){border-color:var(--accent)}
+nav button.on{background:var(--accent);border-color:var(--accent);color:#0e1115;font-weight:700}
+nav button:disabled{opacity:.35;cursor:default}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:9px 18px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;pointer-events:none}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="logo" id="home"><span>X</span>HUB</a>
+  <div class="stats"><span>Visits <b id="sv">0</b></span><span>Plays <b id="sp">0</b></span></div>
+</div></header>
+<main id="grid"></main>
+<nav id="pager"></nav>
+<div id="toast"></div>
+<script>
+// Optional: paste your Firebase Realtime Database URL to share counters across all visitors,
+// e.g. "https://your-project-default-rtdb.firebaseio.com". Leave empty for per-browser counters.
+const DB = "";
+const PER_PAGE = 12;
+const REACTIONS = {heart:"❤️", fire:"🔥", like:"👍"};
+const IDS = `ihlzJXMOQzSV TKWioJnNsYJH twqDmMjK0K1W 3r5kwCzBaQjm QbGOK0xUlbLe 06plUq43Ta7j bw7789dyRuqQ BDGC67f9Brt9 diQ7FaFeKGfJ ND9dWssurM74 BFx6MFJazkX5 pdQPpKIXzClX M63O5nDB3ebR mJUEEbcBRTIw HHxlvVwxS1x3 e6F0xlxW2rZz pfCw8aIr1eGN KXvA7lwH2PPH MvZDN8ZSmogf 22eRQqfPnUuI wJa7wif6Rn8u yHXFILt9oA1s oVKRkh3J4y7y Y621Yu0SwhOo CD2fCV9MlUmr FHHvWFVgQWEG qCDEq4q1PuNx 3gtGkOMnPmwO NnhCvnt3habU y8Cz7wgUS7CQ wxStXlYOCo8Z vb2tg2kJYgqq aD8qyzHzFcvw XJvnjcterq84 DSCXT8CRSJE2 kqJGfVDo8gxo uNsER7hAQp2c PzA2bpaiBE0X 14JnFENWO2mY GQ52o4jER3Mb ZRtBgzo386ot WI3LkZ3JzMEX cB4Lh1zOGv1C SRjGiw6GBx08 fwMg7Q47X1qH OLr07LLWDlyC JG05hqc59AnR XRYy1EnMyb1r DGeTXhpHFQLn qiQN5bAyQ8LO hKe8myy8oN9o Pty9OeO1uBu7 E88S69k50yAV xP7EnHewKtOP KjXMPptfAYtN piwp2RvnOxS4 d3UxuyBb6Pu3 RkZz5ITztRfu jOuCy1xMBNTu SI21LA7dsNYF g7dL8jCEI8zi QImCrWSbRI1H H21Nw9po5sbr OXFxyEwuviK4 akXhOA6DbKxT rOhkNr04AE0q ZgaqiiyLP3TR 8QpABRotycJ6 TZBTBg8Y4FzB 3RNwVs9Iw7dd bJQhMdRO9HT2 gSmhTZ1ZAAtA s1gbYQwxxVvk WiL4OU9qVGGV Z9Kcpa8kwk26 e0LB704TeLcQ Kd5IMoTdcPfl 5bxWyUj2sYyO ujoCoO8zaI7h jhRLgwCZhi1b Hi6wk0ZxAAnX uwFwcc31N7mM cIxkb65Zv8e4 CHeWDVRVCrlz NtB26toKzhch IntcEtQYgcZM 1yHxWGtQDA3f aruGtQpIDlJN s4j3OS095oZO qlfKHyttc1b7 eMZieEvwSHp7 RQRBhQnNcQEU ewuc89RfycN5 BE1DuA5AtReR wccrOFVNbtCH JQxZFNOkM4cu 1vE0D4ARrj3X t59Np8NFoXix avgcxNW1Sfwb 740RloZJvTpz AOO9SLd5XGlA s60soJyRqdNY nwETBEsy0CN2 zCYYtpOC5rZF M05UrMAI7cln ZlX2ErsVIqTf N083LZxnV25q UJwXNjaw20NH 0T0osBNJxPMX t2tN2PIGCuyw lO8A8Jkayegg 8t4qd3gTb4a1 mhRc0iYtQgj0 fxA3u7Y4xwMP en2MrD0OH8la 9m1kFyUI2oLF nngQDEK5oAFc 1V9ux0ACKfs1 U8yEa5DG6SS2 z0Gjpj7jNvtn T2HUuSdMGKv1 EYopsd7RuyKP o6VETLxd8ssr E40CZhLiI4cX sKnprmFo4Mf0 zgdynysfmIOL cAPVfzGNbkRA Us88JXlP4Rfx cw9gobfLnzep tCDcZUOpRvlt ua5nRuKtmlwc o83dMMBKKVTw Pwmlp9pbS9x2 BO0N7oe24HWN cRY11OR8ZFdN iHrPebyCSffB hdeHIZAvzQ8L ilvfl7ZDaJLR O8iAd3X7VHEa uFeCT4qje73w rdtNbcUnQnKs nU0f4DC3kX8Q 37bPtI2khKnZ KukjYS7rVj8D Vq9S5ZELqlAN llpEQ4Wbi75U LgvlQx90WtAc zQer8smbIrKY huxX1PTt9p9J bMNGeX4ZYkFW WjyvgGdx69XO O01EJICuf8JL wwoTst5ErDD9 bVNmHw05bKqE yYPgvoh1Y8Fs K3C9atO3mJQx AZeAGHXKYzJ3 loqBPgDc5QQi uhqQsorrWEhe xQvWSrH1bmZE KGdNdtjc44HP 7DTmO6pec9cu YDIdhgwTuBCQ oXGt8xf1S3Ey 9QVGQnFmuBcO bsHAZarTKIJY P80W3NNnZpoD eA1L2TPwM0wE Jgoi4vynV2Pa 239WVaaBWB2h buXz64rCaktg fEQWHU802doZ 8McdOGk2uCUm cGnxiRAevrZ9 3bVycZ1hPcQu wmfzrhW2schO EMAMQKXwdtZP naBXJ8T6DE7I So3uupyJxow8 8dtiQW4Q607m 6iJmBALzNiFA N7832MMneGFv FWRVj7ARQieK AzkzryeuHtv1 mIGvnadQnunu eGCQKb4jx0jh lyGobfH34uVl lQfocEkQLGYd oltBNiYzJ7yq Mjkn7cyrM3SE dCtGLNUkkqoP 4MOZB6r2oVlW Xsnx7D4tax6B sXqu5vuH2KNO snQ4aKo9keKb 9255wsRiFbZf ZT37o3bv9abW 4UqB2GaX7w6G 7v5MTbY0ND0p mC8eBMZKsjKf`.split(/\s+/);
+
+// ---------- counters ----------
+let stats = {site:{visits:0,plays:0}, v:{}};
+const LS = "xhub-stats", MINE = "xhub-mine";
+const mine = JSON.parse(localStorage.getItem(MINE) || "{}");
+
+function apply(path, n){
+  const k = path.split("/"); let o = stats;
+  for(let i=0;i<k.length-1;i++) o = o[k[i]] = o[k[i]] || {};
+  o[k.at(-1)] = (o[k.at(-1)] || 0) + n;
+}
+function save(){ try{ localStorage.setItem(LS, JSON.stringify(stats)); }catch(e){} }
+function norm(){ stats.site = stats.site || {visits:0,plays:0}; stats.v = stats.v || {}; }
+async function bump(path, n=1){
+  apply(path, n); save();
+  if(DB){ try{ await fetch(`${DB}/${path}.json`,{method:"PUT",body:JSON.stringify({".sv":{increment:n}})}); }catch(e){} }
+}
+async function fresh(){
+  try{
+    const ctl = new AbortController(); setTimeout(() => ctl.abort(), 6000);
+    const r = await fetch(`${DB}/.json`, {signal: ctl.signal}); const d = await r.json();
+    if(d){ stats = d; norm(); save(); return true; }
+  }catch(e){}
+  return false;
+}
+const g = (id,k) => (stats.v[id] && stats.v[id][k]) || 0;
+const fmt = n => (n||0).toLocaleString("en-US");
+function paintTotals(){ sv.textContent = fmt(stats.site.visits); sp.textContent = fmt(stats.site.plays); }
+
+// ---------- rendering ----------
+let order = [], page = 1, played = false;
+function countPlay(pl){
+  if(pl._c || !pl.isConnected) return; pl._c = true;
+  const id = pl.dataset.id; bump(`v/${id}/p`); bump("site/plays"); paintTotals();
+}
+const DEBUGMSG = location.search.includes("debug");
+addEventListener("message", e => {
+  if(e.origin !== "https://tv1.indoav.app") return;
+  const raw = typeof e.data === "string" ? e.data : JSON.stringify(e.data);
+  if(DEBUGMSG) toast(raw.slice(0,70));
+  if(!/(^|[^a-z])(on)?play(ing)?([^a-z]|$)/i.test(raw) || /pause|stop|end/i.test(raw)) return;
+  const f = [...document.querySelectorAll(".player iframe")].find(x => x.contentWindow === e.source);
+  if(f) countPlay(f.parentElement);
+});
+// load each player only when it is near the screen, so its own thumbnail shows without a click
+const io = new IntersectionObserver(es => es.forEach(e => {
+  if(e.isIntersecting){ e.target.src = e.target.dataset.src; io.unobserve(e.target); }
+}), {rootMargin:"300px"});
+// a tap inside a player moves focus to its iframe: count a play 5s later if the tab is still visible
+addEventListener("blur", () => setTimeout(() => {
+  const a = document.activeElement;
+  if(a && a.tagName === "IFRAME" && a.parentElement.classList.contains("player")){
+    played = true; const pl = a.parentElement;
+    setTimeout(() => { if(document.visibilityState === "visible") countPlay(pl); }, 5000);
+  }
+}, 0));
+const grid = document.getElementById("grid"), pager = document.getElementById("pager");
+const sv = document.getElementById("sv"), sp = document.getElementById("sp");
+
+function card(id){
+  const el = document.createElement("div"); el.className = "card"; el.id = "v-" + id;
+  el.innerHTML = `<div class="player"><iframe data-src="https://tv1.indoav.app/e/${id}" allow="autoplay; fullscreen" allowfullscreen></iframe></div><div class="bar"></div>`;
+  const pl = el.querySelector(".player"); pl.dataset.id = id;
+  io.observe(pl.querySelector("iframe"));
+  const bar = el.querySelector(".bar");
+  for(const [key, emo] of Object.entries(REACTIONS)){
+    const b = document.createElement("button");
+    const draw = () => { b.textContent = `${emo} ${g(id,"r_"+key) || ""}`.trim(); b.classList.toggle("on", mine[id] === key); };
+    b.onclick = () => {
+      if(mine[id] === key){ bump(`v/${id}/r_${key}`, -1); delete mine[id]; }
+      else { if(mine[id]) bump(`v/${id}/r_${mine[id]}`, -1); bump(`v/${id}/r_${key}`, 1); mine[id] = key; }
+      localStorage.setItem(MINE, JSON.stringify(mine));
+      bar.querySelectorAll("button:not(.share)").forEach(x => x._draw());
+    };
+    b._draw = draw; draw(); bar.append(b);
+  }
+  const s = document.createElement("button"); s.className = "share"; s.textContent = "Share ↗";
+  s.onclick = async () => {
+    const url = location.origin + location.pathname + "#v=" + id;
+    if(navigator.share){ try{ await navigator.share({url}); return; }catch(e){ if(e.name==="AbortError") return; } }
+    try{ await navigator.clipboard.writeText(url); toast("Link copied"); }catch(e){ prompt("Copy this link:", url); }
+  };
+  bar.append(s);
+  return el;
+}
+function render(){
+  const pages = Math.ceil(order.length / PER_PAGE);
+  grid.innerHTML = "";
+  order.slice((page-1)*PER_PAGE, page*PER_PAGE).forEach(id => grid.append(card(id)));
+  pager.innerHTML = "";
+  const mk = (t, p, dis, on) => { const b = document.createElement("button"); b.textContent = t; b.disabled = dis; if(on) b.className = "on"; b.onclick = () => go(p); pager.append(b); };
+  mk("‹", page-1, page===1);
+  for(let i=1;i<=pages;i++) mk(i, i, false, i===page);
+  mk("›", page+1, page===pages);
+}
+function go(p){ page = p; render(); scrollTo({top:0,behavior:"smooth"}); }
+function toast(t){ const e = document.getElementById("toast"); e.textContent = t; e.classList.add("show"); setTimeout(() => e.classList.remove("show"), 1800); }
+
+document.getElementById("home").onclick = () => { history.replaceState(null,"",location.pathname); go(1); };
+
+(function(){
+  try{ const c = JSON.parse(localStorage.getItem(LS) || "null"); if(c) stats = c; }catch(e){}
+  norm();
+  if(!sessionStorage.getItem("counted")){ sessionStorage.setItem("counted","1"); bump("site/visits"); }
+  const sortIds = () => IDS.map((id,i)=>({id,i})).sort((a,b) => g(b.id,"p")-g(a.id,"p") || a.i-b.i).map(x=>x.id);
+  const m = location.hash.match(/v=([\w-]+)/);
+  paintTotals(); order = sortIds();
+  if(m && order.includes(m[1])) page = Math.floor(order.indexOf(m[1]) / PER_PAGE) + 1;
+  render();
+  if(m){ const t = document.getElementById("v-" + m[1]); if(t){ t.classList.add("hl"); t.scrollIntoView({block:"center"}); } }
+  if(DB) fresh().then(ok => {
+    if(!ok) return;
+    paintTotals();
+    if(!played && page === 1 && !m){ order = sortIds(); render(); }
+    else document.querySelectorAll(".bar button:not(.share)").forEach(x => x._draw && x._draw());
+  });
+})();
+</script>
+</body>
+</html>
