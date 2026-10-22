@@ -29,7 +29,8 @@ main{max-width:1160px;margin:0 auto;padding:24px 18px 36px;display:grid;grid-tem
 .card.hl{outline:2px solid var(--accent)}
 .player{position:relative;aspect-ratio:16/9;background:radial-gradient(circle at 30% 20%,#2b3745,#151a21)}
 .player iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-.meta{display:flex;gap:14px;color:var(--mute);font-size:12.5px;padding:10px 14px}
+.title{padding:12px 14px 0;font-size:16px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{display:flex;gap:14px;color:var(--mute);font-size:12.5px;padding:6px 14px 10px}
 nav{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;padding:0 16px 48px}
 nav button{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:10px;min-width:40px;padding:7px 12px;cursor:pointer;transition:.15s}
 nav button:hover:not(:disabled){border-color:var(--accent)}
@@ -51,6 +52,9 @@ nav button:disabled{opacity:.35;cursor:default}
 <script>
 /* ========= الإعدادات ========= */
 const PER_PAGE = 12; // عدد الفيديوهات في الصفحة
+
+// العنوان اللي بيظهر على كل فيديو
+const VIDEO_TITLE = "Retka";
 
 // اسم خاص بموقعك للعدادات (متغيروش وإلا الأرقام هتبدأ من الصفر)
 const NAMESPACE = "videohub-k7q2x9";
@@ -209,6 +213,7 @@ function card(id) {
   el.innerHTML =
     '<div class="player"><iframe data-id="' + id + '" data-src="https://tv1.indoav.app/e/' + id + '" ' +
     'allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>' +
+    '<div class="title">' + VIDEO_TITLE + '</div>' +
     '<div class="meta"><span data-views="' + id + '">👁 … views</span></div>';
 
   playerIO.observe(el.querySelector("iframe"));
