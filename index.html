@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>XHUB</title>
+<meta name="description" content="XHUB - video hub">
 <meta name="monetag" content="a422048a74688cf3052bab8ab54443e9">
 
 <link rel="preconnect" href="https://tv1.indoav.app">
@@ -42,12 +43,12 @@ nav button:disabled{opacity:.35;cursor:default}
 <body>
 
 <header><div class="wrap">
-  <a class="logo" id="home"><span>X</span>HUB</a>
+  <a class="logo" id="home" href="./"><span>X</span>HUB</a>
   <div class="stats"><span>Visits <b id="sv">0</b></span><span>Plays <b id="sp">0</b></span></div>
 </div></header>
 
 <main id="grid"></main>
-<nav id="pager"></nav>
+<nav id="pager" aria-label="Pagination"></nav>
 
 <script>
 /* ========= الإعدادات ========= */
@@ -63,11 +64,9 @@ const COUNTER_API = "https://abacus.jasoncameron.dev";
 const KEY_SITE = "site";               // إجمالي الزيارات
 const KEY_TOTAL_PLAYS = "total_plays"; // إجمالي مرات التشغيل
 
-// رابط الإعلان: بيتفتح مرة واحدة لكل جلسة عند أول ضغطة
-const AD_LINK = "https://uplcm.com/4/11848806";
-
 // أضف أي فيديو جديد هنا: حط الـ ID بس (الجزء اللي بعد /e/)
-const videoIds = [
+// الـ Set بيشيل أي ID مكرر تلقائياً
+const videoIds = [...new Set([
   "IRMKlaLIwYhD", "XRhL4WJLIMPx", "U1BDwsGJc4Ts", "z9yut4WfdEjs", "VpElHzLf5b8O", "TKWioJnNsYJH",
   "twqDmMjK0K1W", "3r5kwCzBaQjm", "ihlzJXMOQzSV", "QbGOK0xUlbLe",
   "06plUq43Ta7j", "bw7789dyRuqQ",
@@ -96,19 +95,21 @@ const videoIds = [
   "9m1kFyUI2oLF", "nngQDEK5oAFc", "1V9ux0ACKfs1", "U8yEa5DG6SS2", "z0Gjpj7jNvtn",
   "T2HUuSdMGKv1", "EYopsd7RuyKP", "o6VETLxd8ssr", "E40CZhLiI4cX", "sKnprmFo4Mf0",
   "zgdynysfmIOL", "cAPVfzGNbkRA", "Us88JXlP4Rfx", "cw9gobfLnzep", "tCDcZUOpRvlt"
-];
+])];
 
 /* ========= العدادات ========= */
 const stats = {};
 const fmt = n => Number(n || 0).toLocaleString("en-US");
 const $ = id => document.getElementById(id);
 
+// بترجع null لو الطلب فشل (بدل 0) عشان الأرقام ما تتبوظش
 async function counterRequest(action, key) {
   try {
     const res = await fetch(COUNTER_API + "/" + action + "/" + NAMESPACE + "/" + key);
-    if (!res.ok) return 0;
+    if (!res.ok) return null;
     const data = await res.json();
-    return Number(data.value) || 0;
+    const n = Number(data.value);
+    return isNaN(n) ? null : n;
   } catch (e) { return null; }
 }
 
@@ -168,17 +169,6 @@ function checkIframeFocus() {
 addEventListener("blur", () => setTimeout(checkIframeFocus, 0));
 setInterval(checkIframeFocus, 400);
 
-/* ========= رابط الإعلان ========= */
-// بيتفتح مرة واحدة فقط لكل جلسة، عند أول ضغطة على الصفحة
-let adOpened = false;
-try { adOpened = !!sessionStorage.getItem("ad_opened"); } catch (e) {}
-document.addEventListener("click", function () {
-  if (adOpened) return;
-  adOpened = true;
-  try { sessionStorage.setItem("ad_opened", "1"); } catch (e) {}
-  window.open(AD_LINK, "_blank", "noopener");
-});
-
 /* ========= العرض ========= */
 const totalPages = Math.ceil(videoIds.length / PER_PAGE);
 const grid = $("grid"), pager = $("pager");
@@ -212,7 +202,7 @@ function card(id) {
 
   el.innerHTML =
     '<div class="player"><iframe data-id="' + id + '" data-src="https://tv1.indoav.app/e/' + id + '" ' +
-    'allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>' +
+    'title="' + VIDEO_TITLE + '" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>' +
     '<div class="title">' + VIDEO_TITLE + '</div>' +
     '<div class="meta"><span data-views="' + id + '">👁 … views</span></div>';
 
@@ -223,16 +213,17 @@ function card(id) {
 
 function renderPagination(page) {
   pager.innerHTML = "";
-  const mk = (t, p, dis, on) => {
+  const mk = (t, p, dis, on, label) => {
     const b = document.createElement("button");
     b.textContent = t; b.disabled = !!dis;
-    if (on) b.className = "on";
+    b.setAttribute("aria-label", label || ("Page " + t));
+    if (on) { b.className = "on"; b.setAttribute("aria-current", "page"); }
     b.onclick = () => goToPage(p);
     pager.append(b);
   };
-  mk("‹", page - 1, page === 1);
+  mk("‹", page - 1, page === 1, false, "Previous page");
   for (let i = 1; i <= totalPages; i++) mk(i, i, false, i === page);
-  mk("›", page + 1, page === totalPages);
+  mk("›", page + 1, page === totalPages, false, "Next page");
 }
 
 function showPage(page) {
@@ -249,8 +240,9 @@ function goToPage(page) {
   scrollTo({ top: 0, behavior: "smooth" });
 }
 
-$("home").onclick = () => {
-  try { history.replaceState(null, "", location.pathname); } catch (e) {}
+$("home").onclick = e => {
+  e.preventDefault();
+  try { history.replaceState(null, "", location.pathname); } catch (err) {}
   showPage(1);
   scrollTo({ top: 0, behavior: "smooth" });
 };
